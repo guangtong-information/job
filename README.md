@@ -581,6 +581,8 @@ ls 查看
 
 ### 5. 可视化工具ZooInspector
 
+#### [下载地址](https://issues.apache.org/jira/secure/attachment/12436620/)
+
 java -jar zookeeper-dev-ZooInspector.jar
 
 
