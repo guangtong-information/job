@@ -244,3 +244,224 @@ class TimerThread extends Thread {
 
 
 
+## 2.Spring
+
+
+
+ ### 初始化项目
+
+https://start.spring.io/
+
+2.15
+
+
+
+
+
+1.@EnableScheduling
+
+2.@Scheduled
+
+```
+@EnableScheduling
+@SpringBootApplication
+public class SpringDemoApplication {
+
+
+    @Scheduled(cron = "2/3 * * * * *")
+    public void job1() {
+        System.out.println("hello");
+    }
+
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringDemoApplication.class, args);
+    }
+
+}
+
+```
+
+
+
+## 3. quartz
+
+<https://github.com/quartz-scheduler/quartz>
+
+### 1.实现job
+
+```java
+public class HelloJob implements Job {
+
+    @Override
+    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+
+        System.out.println("hello");
+    }
+}
+
+
+```
+
+
+
+### 2.执行
+
+```java
+
+        JobDetail job = JobBuilder.newJob(HelloJob.class)
+                .withIdentity("job1", "group1")
+                .build();
+
+        Trigger trigger = TriggerBuilder.newTrigger()
+                .withIdentity("trigger1", "group1")
+                .startNow()
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                        .withIntervalInSeconds(40)
+                        .repeatForever())
+                .build();
+
+
+        Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+        scheduler.scheduleJob(job, trigger);
+        scheduler.start();
+```
+
+Quartz调度一次任务，会干如下的事：
+
+JobClass jobClass=JobDetail.getJobClass()
+
+Job jobInstance=jobClass.newInstance()。所以Job实现类，必须有一个public的无参构建方法。
+
+jobInstance.execute(JobExecutionContext context)。JobExecutionContext是Job运行的上下文，可以获得Trigger、Scheduler、JobDetail的信息。
+
+
+
+Scheduler：调度器。所有的调度都是由它控制。
+
+Trigger： 定义触发的条件。例子中，它的类型是SimpleTrigger，每隔3秒中执行一次
+
+JobDetail & Job： JobDetail 定义的是任务数据，而真正的执行逻辑是在Job中，
+
+ 为什么设计成JobDetail + Job，不直接使用Job？这是因为任务是有可能并发执行，如果Scheduler直接使用Job，就会存在对同一个Job实例并发访问的问题。而JobDetail & Job 方式，sheduler每次执行，都会根据JobDetail创建一个新的Job实例，这样就可以规避并发访问的问题。
+
+###  3.cron
+
+```java
+ Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+        JobDetail job = JobBuilder.newJob(HelloJob.class).build();
+        Trigger trigger = TriggerBuilder
+                .newTrigger()
+                .withSchedule(CronScheduleBuilder.cronSchedule("0/3 * * * * ? "))
+                .build();
+        scheduler.scheduleJob(job, trigger);
+        scheduler.start();
+```
+
+校验表达式
+
+```
+CronExpression cronExpression = new CronExpression("0 0 1 ? * L");
+System.out.println(cronExpression.getExpressionSummary());
+
+
+seconds: 0
+minutes: 0
+hours: 1
+daysOfMonth: ?
+months: *
+daysOfWeek: 7
+lastdayOfWeek: false
+nearestWeekday: false
+NthDayOfWeek: 0
+lastdayOfMonth: false
+years: *
+```
+
+
+
+
+
+计划任务，是任务在约定的时间执行已经计划好的工作，这是表面的意思。在Linux中，我们经常用到 cron 服务器来完成这项工作。cron服务器可以根据配置文件约定的时间来执行特定的任务。
+
+ public final class CronExpression implements Serializable, Cloneable {    
+    protected static final int SECOND = 0;
+    protected static final int MINUTE = 1;
+    protected static final int HOUR = 2;
+    protected static final int DAY_OF_MONTH = 3;
+    protected static final int MONTH = 4;
+    protected static final int DAY_OF_WEEK = 5;
+    protected static final int YEAR = 6;
+    ……
+
+
+
+| 名称 | 是否必须 | 允许值          |    特殊字符     |
+| ---- | -------- | --------------- | :-------------: |
+| 秒   | 是       | 0-59            |     , - * /     |
+| 分   | 是       | 0-59            |     , - * /     |
+| 时   | 是       | 0-23            |     , - * /     |
+| 日   | 是       | 1-31            | , - * ? / L W C |
+| 月   | 是       | 1-12 或 JAN-DEC |     , - * /     |
+| 周   | 是       | 1-7 或 SUN-SAT  | , - * ? / L C # |
+| 年   | 否       | 空 或 1970-2099 |     , - * /     |
+
+
+
+
+
+每隔5秒执行一次：*/5 * * * * ?
+
+每隔1分钟执行一次：0 */1 * * * ?
+
+每天23点执行一次：0 0 23 * * ?
+
+每天凌晨1点执行一次：0 0 1 * * ?
+
+每月1号凌晨1点执行一次：0 0 1 1 * ?
+
+每月最后一天23点执行一次：0 0 23 L * ?
+
+每周星期天凌晨1点实行一次：0 0 1 ? * L
+
+在26分、29分、33分执行一次：0 26,29,33 * * * ?
+
+每天的0点、13点、18点、21点都执行一次：0 0 0,13,18,21 * * ?
+
+
+
+## 4.带参数
+
+
+
+```java
+
+public class HelloJob implements Job {
+
+    @Override
+    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        String name = jobExecutionContext.getMergedJobDataMap().getString("name");
+        System.out.println("hello:" + name);
+    }
+}
+```
+
+
+
+执行
+
+```java
+  Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+        JobDetail job = JobBuilder.newJob(HelloJob.class)
+                .usingJobData("name", "zhangsan").build();
+        
+        Trigger trigger = TriggerBuilder
+                .newTrigger()
+                .withSchedule(CronScheduleBuilder.cronSchedule("0/3 * * * * ?"))
+                .build();
+        scheduler.scheduleJob(job, trigger);
+        scheduler.start();
+```
+
+
+
