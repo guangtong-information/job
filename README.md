@@ -1,4 +1,4 @@
-# Ealstic Job
+# 定时任务
 
 
 
@@ -9,21 +9,21 @@
 ### 1.1while(ture)
 
 ```java
-        Thread thread = new Thread(new Runnable() {
-            public void run() {
-                while (true) {
-                    System.out.println("hello");
-                    try {
-                        Thread.sleep(3000L);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+Thread thread = new Thread(new Runnable() {
+    public void run() {
+        while (true) {
+            System.out.println("hello");
+            try {
+                Thread.sleep(3000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-        });
+        }
+    }
+});
 
 
-        thread.run();
+thread.run();
 ```
 
 
@@ -33,7 +33,6 @@
 延迟3s 执行
 
 ```
-
         //延迟3s 执行
         Timer timer = new Timer();
 
@@ -442,7 +441,7 @@ years: *
 
 
 
-## 4.带参数
+### 4.带参数
 
 
 
@@ -474,6 +473,60 @@ public class HelloJob implements Job {
         scheduler.scheduleJob(job, trigger);
         scheduler.start();
 ```
+
+
+
+
+
+## 4.Elastic Job (集群定时任务)
+
+<http://elasticjob.io/>
+
+
+
+## 环境要求
+
+### a. Java
+
+请使用JDK1.7及其以上版本。[详情参见](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
+
+### b. Zookeeper
+
+请使用Zookeeper 3.4.6及其以上版本。[详情参见](https://zookeeper.apache.org/doc/trunk/zookeeperStarted.html)
+
+### c. Maven
+
+请使用Maven 3.0.4及其以上版本。[详情参见](http://maven.apache.org/install.html)
+
+
+
+
+
+### 4.1 分片概念
+
+将整体任务拆解为多个子任务
+
+可通过服务器的增减弹性伸缩任务处理能力
+
+分布式协调，任务服务器上下线的全自动发现与处理
+
+
+
+
+
+
+
+### 4.2 作业类型
+
+1.单一定时任务
+
+2.流数据类型定时任务
+
+3.脚本任务
+
+
+
+
 
 
 
