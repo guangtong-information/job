@@ -604,6 +604,22 @@ java -jar zookeeper-dev-ZooInspector.jar
 
 
 
+1.实现作业
+
+```java
+public class MyElasticJob  implements SimpleJob {
+
+    @Override
+    public void execute(ShardingContext shardingContext) {
+        System.out.println(Thread.currentThread()+ "hello:" );
+    }
+}
+```
+
+
+
+
+
 配置
 
 ```
@@ -657,6 +673,42 @@ shardingTotalCount：  分片总数
 ```java
       new JobScheduler(createRegistryCenter(), createJobConfiguration()).init();
 ```
+
+
+
+
+
+完整的demo
+
+```java
+public static void main(String[] args) {
+
+        new JobScheduler(createRegistryCenter(), createJobConfiguration()).init();
+    }
+
+    private static LiteJobConfiguration createJobConfiguration() {
+        JobCoreConfiguration simpleCoreConfig =
+                JobCoreConfiguration.newBuilder("demoSimpleJob",
+                        "0/15 * * * * ?", 10).build();
+        // 定义SIMPLE类型配置
+        SimpleJobConfiguration simpleJobConfig =
+                new SimpleJobConfiguration(simpleCoreConfig, MyElasticJob.class.getCanonicalName());
+        // 定义Lite作业根配置
+        LiteJobConfiguration simpleJobRootConfig =
+                LiteJobConfiguration.newBuilder(simpleJobConfig).build();
+        return simpleJobRootConfig;
+    }
+
+    private static CoordinatorRegistryCenter createRegistryCenter() {
+        CoordinatorRegistryCenter regCenter =
+                new ZookeeperRegistryCenter(
+                        new ZookeeperConfiguration("localhost:2181", "elastic-job-demo"));
+        regCenter.init();
+        return regCenter;
+    }
+```
+
+
 
 
 
