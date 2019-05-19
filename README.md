@@ -714,21 +714,201 @@ public static void main(String[] args) {
 
 ### 数据分片
 
- select * from user100w
+####        将100w数据拆分为10份
 
- 执行时间： 1.46s
+ 	select * from user100w
 
-
-
- select * from user100w  where id % 10 =0 
-
-执行时间 0.5s
+​	 执行时间： 1.46s
 
 
 
+​	 select * from user100w  where id % 10 =0 
+
+​	执行时间 0.5s
 
 
-###  7.数据流任务
+
+####  将100w数据拆分为 7份
+
+
+
+​	 select * from user100w  where id % 7 =0 
+
+​	执行时间 0.5s
+
+
+
+
+
+​    
+
+### 任务分片
+
+
+
+**1.****平均分配算法（默认）**
+
+
+
+   如果分片不能整除，则不能整除的多余分片将依次追加到序号小的服务器。如：
+
+
+
+如果有3台服务器，分成9片，则每台服务器分到的分片是：1=[0,1,2], 2=[3,4,5], 3=[6,7,8]
+
+如果有3台服务器，分成8片，则每台服务器分到的分片是：1=[0,1,6], 2=[2,3,7], 3=[4,5]
+
+如果有3台服务器，分成10片，则每台服务器分到的分片是：1=[0,1,2,9], 2=[3,4,5], 3=[6,7,8]
+
+
+
+**2.** **哈希值奇偶数算法**
+
+
+
+  作业名的哈希值为奇数则IP升序。
+
+  作业名的哈希值为偶数则IP降序。
+
+
+
+
+
+如果有3台服务器，分成2片，作业名称的哈希值为奇数，则每台服务器分到的分片是：1=[0], 2=[1], 3=[]
+
+如果有3台服务器，分成2片，作业名称的哈希值为偶数，则每台服务器分到的分片是：3=[0], 2=[1], 1=[]
+
+
+
+**3.****根据作业名的哈希值对服务器列表进行轮转的分片策略。**
+
+
+
+自定义分片
+
+```
+public interface JobShardingStrategy {
+    
+    /**
+     * 作业分片.
+     * 
+     * @param jobInstances 所有参与分片的单元列表
+     * @param jobName 作业名称
+     * @param shardingTotalCount 分片总数
+     * @return 分片结果
+     */
+    Map<JobInstance, List<Integer>> sharding(List<JobInstance> jobInstances, String jobName, int shardingTotalCount);
+}
+```
+
+
+
+
+
+
+
+任务启动
+
+ 主节点写 服务器信息 + 配置
+
+从节点   只会写服务信息
+
+
+
+任务执行
+
+都会先  判断是否需要重新分片
+
+
+
+ 强制重写配置：
+
+```
+LiteJobConfiguration.newBuilder(simpleJobConfig).overwrite(true)
+```
+
+
+
+
+
+### 流数据任务
+
+实现流作业
+
+
+
+```java
+public class MyElasticJob  implements DataflowJob<String> {
+
+
+    @Override
+    public List<String> fetchData(ShardingContext shardingContext) {
+        int totalCount =  shardingContext.getShardingTotalCount();
+        int index = shardingContext.getShardingItem();
+        String sql = " select * from user100w  where id % "+totalCount+" =" + index;
+        System.out.println( Thread.currentThread() + sql);
+        List<String> list = new ArrayList<>();
+        list.add(UUID.randomUUID().toString());
+        list.add(UUID.randomUUID().toString());
+        return list;
+    }
+
+    @Override
+    public void processData(ShardingContext shardingContext, List<String> data) {
+        System.out.println(Thread.currentThread() + "分片id：" + shardingContext.getShardingItem() +"，获取到list:" + data);
+
+    }
+}
+
+
+```
+
+
+
+执行
+
+```java
+
+public class Demo {
+
+    public static void main(String[] args) {
+
+        new JobScheduler(createRegistryCenter(), createJobConfiguration()).init();
+    }
+
+    private static LiteJobConfiguration createJobConfiguration() {
+        JobCoreConfiguration simpleCoreConfig =
+                JobCoreConfiguration.newBuilder("demoDataFlowJob",
+                        "0/15 * * * * ?", 7).build();
+        // 定义dataflow类型配置
+
+        //不为流数据处理
+        //如果为流数据， 会一直抓取数据， 只到为 空 为止
+        boolean streamingProcess = false;
+
+        DataflowJobConfiguration dataflowJobConfiguration =
+                new DataflowJobConfiguration(simpleCoreConfig, MyElasticJob.class.getCanonicalName(), streamingProcess);
+        // 定义Lite作业根配置
+        LiteJobConfiguration dataFlowJobRootConfig =
+                LiteJobConfiguration.newBuilder(dataflowJobConfiguration).overwrite(true).build();
+        return dataFlowJobRootConfig;
+    }
+
+    private static CoordinatorRegistryCenter createRegistryCenter() {
+        CoordinatorRegistryCenter regCenter =
+                new ZookeeperRegistryCenter(
+                        new ZookeeperConfiguration("localhost:2181", "elastic-job-demo1"));
+        regCenter.init();
+        return regCenter;
+    }
+}
+```
+
+
+
+
+
+随机数据为空
 
 
 
@@ -736,8 +916,240 @@ public static void main(String[] args) {
 
 ```java
 
+public class MyElasticJob  implements DataflowJob<String> {
+
+
+    @Override
+    public List<String> fetchData(ShardingContext shardingContext) {
+        int totalCount =  shardingContext.getShardingTotalCount();
+        int index = shardingContext.getShardingItem();
+        String sql = " select * from user100w  where id % "+totalCount+" =" + index;
+        System.out.println( Thread.currentThread() + sql);
+        List<String> list = new ArrayList<>();
+        list.add(UUID.randomUUID().toString());
+        list.add(UUID.randomUUID().toString());
+
+        if (new Random().nextBoolean()) {
+            return new ArrayList<>();
+        }
+        return list;
+    }
+
+    @Override
+    public void processData(ShardingContext shardingContext, List<String> data) {
+        System.out.println(Thread.currentThread() + "分片id：" + shardingContext.getShardingItem() +"，获取到list:" + data);
+
+    }
+}
 
 ```
+
+
+
+运行作业
+
+```java
+public class MyElasticJob  implements DataflowJob<String> {
+
+
+    @Override
+    public List<String> fetchData(ShardingContext shardingContext) {
+        int totalCount =  shardingContext.getShardingTotalCount();
+        int index = shardingContext.getShardingItem();
+        String sql = " select * from user100w  where id % "+totalCount+" =" + index;
+        System.out.println( Thread.currentThread() + sql);
+        List<String> list = new ArrayList<>();
+        list.add(UUID.randomUUID().toString());
+        list.add(UUID.randomUUID().toString());
+
+        boolean random = new Random().nextBoolean();
+        System.out.println("random:" + random);
+        if (random) {
+            return new ArrayList<>();
+        }
+        return list;
+    }
+
+    @Override
+    public void processData(ShardingContext shardingContext, List<String> data) {
+        System.out.println(Thread.currentThread() + "分片id：" + shardingContext.getShardingItem() +"，获取到list:" + data);
+
+    }
+}
+
+```
+
+
+
+
+
+```
+boolean streamingProcess = true;
+
+DataflowJobConfiguration dataflowJobConfiguration =
+        new DataflowJobConfiguration(simpleCoreConfig, MyElasticJob.class.getCanonicalName(), streamingProcess);
+```
+
+1.  streamingProcess流数据配置：
+
+   - true .如果能取到数据，就一直取，取到为空为止,再等下一次执行
+   - false .取一次数据， 执行一次， 等待下一次执行
+
+   
+
+### 编写脚本：ScriptJob
+
+resources/demo.bat
+
+```bash
+@echo Sharding Context: %time% >>  d:aa.txt
+```
+
+
+
+resources/demo.sh
+
+```sh
+#!/bin/bash
+echo Sharding Context:  `date`  $*
+```
+
+
+
+
+
+### 运行作业：ScriptJob
+
+```java
+public class ScriptJobDemo {
+
+    public static void main(String[] args) throws IOException {
+        new JobScheduler(createRegistryCenter(), createJobConfiguration()).init();
+    }
+
+    //配置注册中心
+    private static CoordinatorRegistryCenter createRegistryCenter() {
+        CoordinatorRegistryCenter regCenter = new ZookeeperRegistryCenter(new ZookeeperConfiguration("127.0.0.1:2181", "elastic-job-script-demo"));
+        regCenter.init();
+        return regCenter;
+    }
+
+    //配置job
+    private static LiteJobConfiguration createJobConfiguration() throws IOException {
+        JobCoreConfiguration coreConfiguration = JobCoreConfiguration.newBuilder("scriptDemoJob", "0/5 * * * * ?", 1).build();
+        ScriptJobConfiguration scriptJobConfiguration = new ScriptJobConfiguration(coreConfiguration, buildScriptCommandLine());
+        LiteJobConfiguration liteJobConfiguration = LiteJobConfiguration.newBuilder(scriptJobConfiguration).overwrite(true).build();
+        return liteJobConfiguration;
+    }
+
+    private static String buildScriptCommandLine() throws IOException {
+        //判断当前系统
+        if (System.getProperties().getProperty("os.name").contains("Windows")) {
+            return Paths.get(ScriptJobDemo.class.getResource("/demo.bat").getPath().substring(1)).toString();
+        }
+        Path result = Paths.get(ScriptJobDemo.class.getResource("/demo.sh").getPath());
+        Files.setPosixFilePermissions(result, PosixFilePermissions.fromString("rwxr-xr-x"));
+        return result.toString();
+    }
+
+}
+```
+
+
+
+## 运维平台
+
+
+
+
+
+作用： 
+
+1监控任务
+
+- 查看任务的状态
+
+2  配置任务
+
+- 全局任务的参数配置
+- 分片的参数配置
+-  触发，失效，修改等。
+
+
+
+
+
+拉取源码
+
+
+
+ https://gitee.com/elasticjob/elastic-job
+
+https://github.com/elasticjob/elastic-job
+
+
+
+git clone https://gitee.com/elasticjob/elastic-job -b 2.1.5  
+
+
+
+编译打包
+
+mvn clean install -DskipTests
+
+
+
+取出压缩包
+
+elastic-job-lite\elastic-job-lite-console\target\elastic-job-lite-console-2.1.5.tar.gz
+
+解压启动
+
+\elastic-job-lite-console-2.1.5\bin\start.bat
+
+
+
+访问http://localhost:8899/
+
+root/root
+
+
+
+用户密码配置路径：
+
+\elastic-job-lite-console-2.1.5\conf\auth.properties
+
+
+
+新增注册中心
+
+
+
+
+
+```
+new ZookeeperConfiguration("localhost:2181", "elastic-job-demo1"));
+```
+
+注册中心地址：   任务对应的地址
+
+命名空间：  对应定时任务的命名空间 
+
+
+
+
+
+https://gitee.com/zhouyanjie/elastic-job-demo
+
+
+
+**自定义参数**： 全局的配置i
+
+**分片序列号/参数对照表**： 例如： 0=11111111,1=xxxxxxxx
+
+根据分片的需要 配置参数  
+
+
 
 
 
