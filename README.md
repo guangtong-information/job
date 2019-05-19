@@ -140,6 +140,7 @@ class TimerThread extends Thread {
   }
   
   
+ //原理：
  class TimerThread {
       
        while (queue.isEmpty())
@@ -500,8 +501,6 @@ public class HelloJob implements Job {
 
 
 
-
-
 ### 4.1 分片概念
 
 将整体任务拆解为多个子任务
@@ -509,10 +508,6 @@ public class HelloJob implements Job {
 可通过服务器的增减弹性伸缩任务处理能力
 
 分布式协调，任务服务器上下线的全自动发现与处理
-
-
-
-
 
 
 
@@ -525,6 +520,184 @@ public class HelloJob implements Job {
 3.脚本任务
 
 
+
+
+
+### Zookeeper
+
+ZooKeeper是一种集中式服务，用于维护配置信息，命名，提供分布式同步和提供组服务。
+
+
+
+### 节点和短暂节点
+
+
+
+节点：
+
+与标准文件系统不同，ZooKeeper命名空间中的每个节点都可以包含与之关联的数据以及子项。这就像拥有一个允许文件也是目录的文件系统。（ZooKeeper旨在存储协调数据：状态信息，配置，位置信息等，因此存储在每个节点的数据通常很小，在字节到千字节范围内。）我们使用术语*znode*来说明我们正在谈论ZooKeeper数据节点。
+
+
+
+短暂节点：
+
+ZooKeeper也有短暂节点的概念。只要创建znode的会话处于活动状态，就会存在这些znode。会话结束时，znode将被删除。当您想要实现*[tbd]*时，短暂节点很有用
+
+
+
+1下载：
+
+https://mirrors.tuna.tsinghua.edu.cn/apache/zookeeper/zookeeper-3.4.14/
+
+
+
+2解压
+
+
+
+3.配置文件
+
+zookeeper-3.4.14\conf\zoo_sample.cfg
+
+修改为:zoo.cfg
+
+
+
+4.启动
+
+\zookeeper-3.4.14\bin\zkServer.cmd
+
+
+
+### 4.zk客户端使用
+
+zookeeper-3.4.14\bin\zkCli.cmd
+
+查看帮助 help
+
+ls 查看
+
+
+
+### 5. 可视化工具ZooInspector
+
+java -jar zookeeper-dev-ZooInspector.jar
+
+
+
+
+
+### 6. 单一定时任务
+
+引入依赖
+
+```xml
+<dependency>
+    <groupId>com.dangdang</groupId>
+    <artifactId>elastic-job-lite-core</artifactId>
+    <version>2.1.5</version>
+</dependency>
+
+```
+
+
+
+配置
+
+```
+public static Builder newBuilder(final String jobName, final String cron, final int shardingTotalCount) {
+    return new Builder(jobName, cron, shardingTotalCount);
+}
+
+JobCoreConfiguration simpleCoreConfig =
+                JobCoreConfiguration.newBuilder("demoSimpleJob",
+                        "0/15 * * * * ?", 10).build();
+
+jobName:   任务的名称
+cron： 执行计划的表达式
+shardingTotalCount：  分片总数
+```
+
+定时任务配置
+
+```java
+ private static LiteJobConfiguration createJobConfiguration() {
+        JobCoreConfiguration simpleCoreConfig =
+                JobCoreConfiguration.newBuilder("demoSimpleJob",
+                        "0/15 * * * * ?", 10).build();
+        // 定义SIMPLE类型配置
+        SimpleJobConfiguration simpleJobConfig =
+                new SimpleJobConfiguration(simpleCoreConfig, MyElasticJob.class.getCanonicalName());
+        // 定义Lite作业根配置
+        LiteJobConfiguration simpleJobRootConfig =
+                LiteJobConfiguration.newBuilder(simpleJobConfig).build();
+        return simpleJobRootConfig;
+    }
+```
+
+注册中心配置
+
+```java
+
+  private static CoordinatorRegistryCenter createRegistryCenter() {
+        CoordinatorRegistryCenter regCenter =
+                new ZookeeperRegistryCenter(
+                        new ZookeeperConfiguration("localhost:2181", "elastic-job-demo"));
+        regCenter.init();
+        return regCenter;
+    }
+```
+
+
+
+执行任务
+
+```java
+      new JobScheduler(createRegistryCenter(), createJobConfiguration()).init();
+```
+
+
+
+名字：demoSimpleJob      
+
+任务计划：每15秒执行一次
+
+分片数量： 10
+
+
+
+注册中心：localhost:2181
+
+命名空间：elastic-job-demo   
+
+
+
+### 数据分片
+
+ select * from user100w
+
+ 执行时间： 1.46s
+
+
+
+ select * from user100w  where id % 10 =0 
+
+执行时间 0.5s
+
+
+
+
+
+###  7.数据流任务
+
+
+
+实现作业
+
+```java
+
+
+```
 
 
 
