@@ -10,9 +10,12 @@ public class MyElasticJob  implements SimpleJob {
 
     @Override
     public void execute(ShardingContext shardingContext) {
+
+        int totalCount =  shardingContext.getShardingTotalCount();
         int index = shardingContext.getShardingItem();
-        String sql = " select * from user100w  where id % 10 =" + index;
+        String sql = " select * from user100w  where id % "+totalCount+" =" + index;
         System.out.println(sql);
+        System.out.println(shardingContext.toString());
         System.out.println(Thread.currentThread()+ "hello:" + index);
     }
 }

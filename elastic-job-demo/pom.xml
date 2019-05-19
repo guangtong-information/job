@@ -6,6 +6,7 @@
 	<modules>
 		<module>simple</module>
 		<module>dataflow</module>
+		<module>script</module>
 	</modules>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
