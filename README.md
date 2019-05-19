@@ -620,22 +620,6 @@ public class MyElasticJob  implements SimpleJob {
 
 
 
-配置
-
-```
-public static Builder newBuilder(final String jobName, final String cron, final int shardingTotalCount) {
-    return new Builder(jobName, cron, shardingTotalCount);
-}
-
-JobCoreConfiguration simpleCoreConfig =
-                JobCoreConfiguration.newBuilder("demoSimpleJob",
-                        "0/15 * * * * ?", 10).build();
-
-jobName:   任务的名称
-cron： 执行计划的表达式
-shardingTotalCount：  分片总数
-```
-
 定时任务配置
 
 ```java
@@ -723,6 +707,8 @@ public static void main(String[] args) {
 注册中心：localhost:2181
 
 命名空间：elastic-job-demo   
+
+
 
 
 
