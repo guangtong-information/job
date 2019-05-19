@@ -288,6 +288,18 @@ public class SpringDemoApplication {
 
 <https://github.com/quartz-scheduler/quartz>
 
+引入依赖
+
+```xml
+<dependency>
+    <groupId>org.quartz-scheduler</groupId>
+    <artifactId>quartz</artifactId>
+    <version>2.3.1</version>
+</dependency>
+```
+
+
+
 ### 1.实现job
 
 ```java
